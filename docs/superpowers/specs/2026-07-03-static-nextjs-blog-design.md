@@ -53,9 +53,12 @@ runtime the site serves pure static HTML — the DB is never touched by a visito
 ## Error handling
 
 - Missing slug → `notFound()` (404 page).
-- Supabase query error at build → throw, **failing the build loudly** (a broken build
-  must not silently ship stale/empty content).
-- Missing env vars → client construction throws at build → build fails visibly.
+- **Env vars present but a query errors → throw, failing the build loudly** (a
+  configured-but-broken DB is a real error that must not silently ship empty content).
+- **Env vars absent → log a loud `console.warn` and return empty** rather than throwing.
+  Rationale: this keeps offline build verification possible and prevents the very first
+  Vercel deploy (before env vars are configured) from hard-failing. An unconfigured build
+  produces a valid static site with an empty index and zero prebuilt slug pages.
 - Zero published rows → index renders a graceful empty-state message (no crash).
 
 ## Design language (Wikipedia)
