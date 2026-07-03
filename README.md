@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BLOG_AUTOMATION — Statically-Generated Next.js Blog
 
-## Getting Started
+The "view" in a content-automation loop: an n8n agent inserts a row into a Supabase
+`test_blogs` table → a Supabase Database Webhook triggers a Vercel redeploy → the rebuilt
+**static** site surfaces the new post. New rows are invisible until a rebuild happens — by
+design.
 
-First, run the development server:
+## Local development
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Apply the database schema: open the Supabase SQL editor and run
+   [`supabase/schema.sql`](supabase/schema.sql).
+2. Configure env vars:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   ```bash
+   cp .env.local.example .env.local
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+   Then set both values (Supabase dashboard → Settings → API):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   - `NEXT_PUBLIC_SUPABASE_URL` — e.g. `https://YOUR-PROJECT-REF.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the anon / public key
 
-## Learn More
+3. Install and run:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm install
+   npm run dev      # http://localhost:3000
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Production build (this is what Vercel runs):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm run build
+   npm start
+   ```
 
-## Deploy on Vercel
+## How it stays static
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Every page: `export const dynamic = 'force-static'`.
+- `app/blog/[slug]/page.tsx`: `generateStaticParams` + `export const dynamicParams = false`,
+  so a slug that didn't exist at build time returns 404 until the next rebuild.
+- All Supabase reads happen at build time in Server Components. No ISR, no `revalidate`,
+  no client-side content fetching.
+- The index shows a `Built at: <ISO>` timestamp — proof a rebuild happened.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Note: this project uses Next.js 16 with the default (non–Cache Components) caching model,
+> under which the `dynamic` / `dynamicParams` route-segment config options apply.
+
+## What you still need to wire up
+
+Run `supabase/schema.sql` in Supabase, set the two env vars in Vercel, then connect the
+Supabase Database Webhook → Vercel Deploy Hook so each insert triggers a redeploy.
